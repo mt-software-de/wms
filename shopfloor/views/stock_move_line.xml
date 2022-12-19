@@ -29,6 +29,12 @@
                     optional="hide"
                     groups="base.group_no_one"
                 />
+                <field
+                    name="shopfloor_user_id"
+                    string="SF User"
+                    optional="hide"
+                    groups="base.group_no_one"
+                />
             </field>
         </field>
     </record>
