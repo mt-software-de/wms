@@ -35,7 +35,7 @@ class TestSelectDestPackage(CommonCase):
             response,
             next_state="confirm_new_package",
             data={
-                "picking": self._data_for_picking_with_line(picking),
+                "picking": self._data_for_picking_with_moves(picking),
                 "selected_move_line": self.data.move_lines(selected_move_line),
                 "new_package_name": "FooBar",
             },
@@ -57,8 +57,8 @@ class TestSelectDestPackage(CommonCase):
         self.assertEqual(selected_move_line.result_package_id.name, "FooBar")
         self.assert_response(
             response,
-            next_state="select_line",
-            data={"picking": self._data_for_picking_with_line(picking)},
+            next_state="select_move",
+            data={"picking": self._data_for_picking_with_moves(picking)},
         )
 
     def test_scan_not_empty_package(self):
@@ -126,6 +126,6 @@ class TestSelectDestPackage(CommonCase):
         self.assertEqual(selected_move_line.result_package_id.name, self.package.name)
         self.assert_response(
             response,
-            next_state="select_line",
-            data={"picking": self._data_for_picking_with_line(picking)},
+            next_state="select_move",
+            data={"picking": self._data_for_picking_with_moves(picking)},
         )

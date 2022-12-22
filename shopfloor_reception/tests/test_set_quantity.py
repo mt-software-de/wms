@@ -44,6 +44,7 @@ class TestSetQuantity(CommonCase):
         selected_move_line = picking.move_line_ids.filtered(
             lambda l: l.product_id == self.product_a
         )
+        selected_move_line.shopfloor_user_id = self.env.uid
         response = self.service.dispatch(
             "set_quantity",
             params={
@@ -69,6 +70,7 @@ class TestSetQuantity(CommonCase):
         selected_move_line = picking.move_line_ids.filtered(
             lambda l: l.product_id == self.product_a
         )
+        selected_move_line.shopfloor_user_id = self.env.uid
         response = self.service.dispatch(
             "set_quantity",
             params={
@@ -94,6 +96,7 @@ class TestSetQuantity(CommonCase):
         selected_move_line = picking.move_line_ids.filtered(
             lambda l: l.product_id == self.product_a
         )
+        selected_move_line.shopfloor_user_id = self.env.uid
         response = self.service.dispatch(
             "set_quantity",
             params={
@@ -144,6 +147,7 @@ class TestSetQuantity(CommonCase):
         selected_move_line = picking.move_line_ids.filtered(
             lambda l: l.product_id == self.product_a
         )
+        selected_move_line.shopfloor_user_id = self.env.uid
         response = self.service.dispatch(
             "set_quantity",
             params={
@@ -174,11 +178,12 @@ class TestSetQuantity(CommonCase):
         self.assertEqual(selected_move_line.qty_done, 10.0)
 
     def test_scan_package_with_destination_child_of_dest_location(self):
-        # next step is select_line
+        # next step is select_move
         picking = self._create_picking()
         selected_move_line = picking.move_line_ids.filtered(
             lambda l: l.product_id == self.product_a
         )
+        selected_move_line.shopfloor_user_id = self.env.uid
         response = self.service.dispatch(
             "set_quantity",
             params={
@@ -193,8 +198,8 @@ class TestSetQuantity(CommonCase):
         )
         self.assertEqual(selected_move_line.location_dest_id, self.dispatch_location)
         data = self.data.picking(picking, with_progress=True)
-        data.update({"move_lines": self.data.move_lines(picking.move_line_ids)})
-        self.assert_response(response, next_state="select_line", data={"picking": data})
+        data.update({"moves": self.data.moves(picking.move_lines)})
+        self.assert_response(response, next_state="select_move", data={"picking": data})
 
     def test_scan_package_with_destination_not_child_of_dest_location(self):
         # next step is set_quantity with error
@@ -202,6 +207,7 @@ class TestSetQuantity(CommonCase):
         selected_move_line = picking.move_line_ids.filtered(
             lambda l: l.product_id == self.product_a
         )
+        selected_move_line.shopfloor_user_id = self.env.uid
         response = self.service.dispatch(
             "set_quantity",
             params={
@@ -227,6 +233,7 @@ class TestSetQuantity(CommonCase):
         selected_move_line = picking.move_line_ids.filtered(
             lambda l: l.product_id == self.product_a
         )
+        selected_move_line.shopfloor_user_id = self.env.uid
         response = self.service.dispatch(
             "set_quantity",
             params={
@@ -253,6 +260,7 @@ class TestSetQuantity(CommonCase):
         selected_move_line = picking.move_line_ids.filtered(
             lambda l: l.product_id == self.product_a
         )
+        selected_move_line.shopfloor_user_id = self.env.uid
         response = self.service.dispatch(
             "set_quantity",
             params={
@@ -263,14 +271,15 @@ class TestSetQuantity(CommonCase):
         )
         self.assertEqual(selected_move_line.location_dest_id, self.dispatch_location)
         data = self.data.picking(picking, with_progress=True)
-        data.update({"move_lines": self.data.move_lines(picking.move_line_ids)})
-        self.assert_response(response, next_state="select_line", data={"picking": data})
+        data.update({"moves": self.data.moves(picking.move_lines)})
+        self.assert_response(response, next_state="select_move", data={"picking": data})
 
     def test_scan_location_not_child_of_dest_location(self):
         picking = self._create_picking()
         selected_move_line = picking.move_line_ids.filtered(
             lambda l: l.product_id == self.product_a
         )
+        selected_move_line.shopfloor_user_id = self.env.uid
         response = self.service.dispatch(
             "set_quantity",
             params={
@@ -295,6 +304,7 @@ class TestSetQuantity(CommonCase):
         selected_move_line = picking.move_line_ids.filtered(
             lambda l: l.product_id == self.product_a
         )
+        selected_move_line.shopfloor_user_id = self.env.uid
         response = self.service.dispatch(
             "set_quantity",
             params={
@@ -303,13 +313,13 @@ class TestSetQuantity(CommonCase):
                 "barcode": "FooBar",
             },
         )
-        data = self.data.picking(picking)
+        picking_data = self.data.picking(picking)
         self.assertFalse(selected_move_line.result_package_id)
         self.assert_response(
             response,
             next_state="set_quantity",
             data={
-                "picking": data,
+                "picking": picking_data,
                 "selected_move_line": self.data.move_lines(selected_move_line),
             },
             message={
@@ -327,12 +337,12 @@ class TestSetQuantity(CommonCase):
             },
         )
         self.assertEqual(selected_move_line.result_package_id.name, "FooBar")
-        data = self.data.picking(picking)
+        picking_data = self.data.picking(picking)
         self.assert_response(
             response,
             next_state="set_destination",
             data={
-                "picking": data,
+                "picking": picking_data,
                 "selected_move_line": self.data.move_lines(selected_move_line),
             },
         )

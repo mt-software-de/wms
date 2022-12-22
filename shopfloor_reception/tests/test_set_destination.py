@@ -33,10 +33,10 @@ class TestSetDestination(CommonCase):
         )
         self.assertEqual(selected_move_line.location_dest_id, self.shelf2)
         data = self.data.picking(picking, with_progress=True)
-        data.update({"move_lines": self.data.move_lines(picking.move_line_ids)})
+        data.update({"moves": self.data.moves(picking.move_lines)})
         self.assert_response(
             response,
-            next_state="select_line",
+            next_state="select_move",
             data={"picking": data},
         )
 
@@ -83,10 +83,10 @@ class TestSetDestination(CommonCase):
         )
         self.assertEqual(selected_move_line.location_dest_id, self.dispatch_location)
         data = self.data.picking(picking, with_progress=True)
-        data.update({"move_lines": self.data.move_lines(picking.move_line_ids)})
+        data.update({"moves": self.data.moves(picking.move_lines)})
         self.assert_response(
             response,
-            next_state="select_line",
+            next_state="select_move",
             data={"picking": data},
         )
 

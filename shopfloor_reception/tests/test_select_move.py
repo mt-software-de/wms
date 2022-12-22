@@ -18,10 +18,10 @@ class TestSelectLine(CommonCase):
             "scan_line", params={"picking_id": picking.id, "barcode": "NOPE"}
         )
         data = self.data.picking(picking, with_progress=True)
-        data.update({"move_lines": self.data.move_lines(picking.move_line_ids)})
+        data.update({"moves": self.data.moves(picking.move_lines)})
         self.assert_response(
             response,
-            next_state="select_line",
+            next_state="select_move",
             data={"picking": data},
             message={"message_type": "error", "body": "Barcode not found"},
         )
@@ -125,10 +125,10 @@ class TestSelectLine(CommonCase):
         )
         error_msg = "Product not found in the current transfer or already in a package."
         data = self.data.picking(picking, with_progress=True)
-        data.update({"move_lines": self.data.move_lines(picking.move_line_ids)})
+        data.update({"moves": self.data.moves(picking.move_lines)})
         self.assert_response(
             response,
-            next_state="select_line",
+            next_state="select_move",
             data={"picking": data},
             message={"message_type": "warning", "body": error_msg},
         )
@@ -147,13 +147,75 @@ class TestSelectLine(CommonCase):
             "Packaging not found in the current transfer or already in a package."
         )
         data = self.data.picking(picking, with_progress=True)
-        data.update({"move_lines": self.data.move_lines(picking.move_line_ids)})
+        data.update({"moves": self.data.moves(picking.move_lines)})
         self.assert_response(
             response,
-            next_state="select_line",
+            next_state="select_move",
             data={"picking": data},
             message={"message_type": "warning", "body": error_msg},
         )
+
+    def test_assign_user_to_picking(self):
+        picking = self._create_picking()
+        self.assertEqual(picking.user_id.id, False)
+        self.service.dispatch(
+            "scan_line",
+            params={
+                "picking_id": picking.id,
+                "barcode": self.product_a.barcode,
+            },
+        )
+        self.assertEqual(picking.user_id.id, self.env.uid)
+
+    def test_assign_shopfloor_user_to_line(self):
+        picking = self._create_picking()
+        for line in picking.move_line_ids:
+            self.assertEqual(line.shopfloor_user_id.id, False)
+        self.service.dispatch(
+            "scan_line",
+            params={
+                "picking_id": picking.id,
+                "barcode": self.product_a.barcode,
+            },
+        )
+        selected_move_line = picking.move_line_ids.filtered(
+            lambda l: l.product_id == self.product_a
+        )
+        other_move_line = fields.first(
+            picking.move_line_ids.filtered(lambda l: l.product_id != self.product_a)
+        )
+        self.assertEqual(selected_move_line.shopfloor_user_id.id, self.env.uid)
+        self.assertEqual(other_move_line.shopfloor_user_id.id, False)
+
+    def test_create_new_line_none_available(self):
+        # If all lines for a product are already assigned to a different user
+        # and there's still qty todo remaining
+        # a new line will be created for that qty todo.
+        picking = self._create_picking()
+        self.assertEqual(len(picking.move_line_ids), 2)
+        selected_move_line = picking.move_line_ids.filtered(
+            lambda l: l.product_id == self.product_a
+        )
+        # The picking and the selected line have been previously assigned to a different user
+        # and this user has completed a total of 3 units.
+        another_user = fields.first(
+            self.env["res.users"].search([("id", "!=", self.env.uid)])
+        )
+        selected_move_line.shopfloor_user_id = another_user
+        selected_move_line.qty_done = 3
+        # When the user scans that product,
+        # a new line will be generated with the remaining qty todo.
+        self.service.dispatch(
+            "scan_line",
+            params={
+                "picking_id": picking.id,
+                "barcode": self.product_a.barcode,
+            },
+        )
+        self.assertEqual(len(picking.move_line_ids), 3)
+        created_line = picking.move_line_ids[2]
+        self.assertEqual(created_line.product_uom_qty, 7)
+        self.assertEqual(created_line.shopfloor_user_id.id, self.env.uid)
 
     def test_done_action(self):
         picking = self._create_picking()
@@ -178,7 +240,7 @@ class TestSelectLine(CommonCase):
                 "picking_id": picking.id,
             },
         )
-        data = {"picking": self._data_for_picking_with_line(picking)}
+        data = {"picking": self._data_for_picking_with_moves(picking)}
         self.assert_response(
             response,
             next_state="confirm_done",

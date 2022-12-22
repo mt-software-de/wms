@@ -34,8 +34,8 @@ class TestSelectDocument(CommonCase):
         )
         self.assert_response(
             response,
-            next_state="select_line",
-            data={"picking": self._data_for_picking_with_line(picking)},
+            next_state="select_move",
+            data={"picking": self._data_for_picking_with_moves(picking)},
         )
 
     def test_scan_picking_origin_multiple_pickings(self):
@@ -77,13 +77,13 @@ class TestSelectDocument(CommonCase):
         )
         self.assert_response(
             response,
-            next_state="select_line",
-            data={"picking": self._data_for_picking_with_line(picking_today)},
+            next_state="select_move",
+            data={"picking": self._data_for_picking_with_moves(picking_today)},
         )
 
     def test_scan_picking_origin_one_picking(self):
         # Only 1 picking with this origin is found.
-        # Move to select_line.
+        # Move to select_move.
         picking = self._create_picking()
         picking.write({"origin": "Somewhere"})
         response = self.service.dispatch(
@@ -91,8 +91,8 @@ class TestSelectDocument(CommonCase):
         )
         self.assert_response(
             response,
-            next_state="select_line",
-            data={"picking": self._data_for_picking_with_line(picking)},
+            next_state="select_move",
+            data={"picking": self._data_for_picking_with_moves(picking)},
         )
 
     def test_scan_packaging_single_picking(self):
