@@ -16,6 +16,7 @@ class TestSetLotConfirm(CommonCase):
         selected_move_line = picking.move_line_ids.filtered(
             lambda l: l.product_id == self.product_a
         )
+        selected_move_line.shopfloor_user_id = self.env.uid
         # product has been set as requiring a expiration date.
         # Trying to move to the next screen should return an error
         response = self.service.dispatch(

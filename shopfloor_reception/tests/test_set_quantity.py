@@ -44,6 +44,7 @@ class TestSetQuantity(CommonCase):
         selected_move_line = picking.move_line_ids.filtered(
             lambda l: l.product_id == self.product_a
         )
+        selected_move_line.shopfloor_user_id = self.env.uid
         response = self.service.dispatch(
             "set_quantity",
             params={
@@ -69,6 +70,7 @@ class TestSetQuantity(CommonCase):
         selected_move_line = picking.move_line_ids.filtered(
             lambda l: l.product_id == self.product_a
         )
+        selected_move_line.shopfloor_user_id = self.env.uid
         response = self.service.dispatch(
             "set_quantity",
             params={
@@ -94,6 +96,7 @@ class TestSetQuantity(CommonCase):
         selected_move_line = picking.move_line_ids.filtered(
             lambda l: l.product_id == self.product_a
         )
+        selected_move_line.shopfloor_user_id = self.env.uid
         response = self.service.dispatch(
             "set_quantity",
             params={
@@ -144,6 +147,7 @@ class TestSetQuantity(CommonCase):
         selected_move_line = picking.move_line_ids.filtered(
             lambda l: l.product_id == self.product_a
         )
+        selected_move_line.shopfloor_user_id = self.env.uid
         response = self.service.dispatch(
             "set_quantity",
             params={
@@ -179,6 +183,7 @@ class TestSetQuantity(CommonCase):
         selected_move_line = picking.move_line_ids.filtered(
             lambda l: l.product_id == self.product_a
         )
+        selected_move_line.shopfloor_user_id = self.env.uid
         response = self.service.dispatch(
             "set_quantity",
             params={
@@ -202,6 +207,7 @@ class TestSetQuantity(CommonCase):
         selected_move_line = picking.move_line_ids.filtered(
             lambda l: l.product_id == self.product_a
         )
+        selected_move_line.shopfloor_user_id = self.env.uid
         response = self.service.dispatch(
             "set_quantity",
             params={
@@ -227,6 +233,7 @@ class TestSetQuantity(CommonCase):
         selected_move_line = picking.move_line_ids.filtered(
             lambda l: l.product_id == self.product_a
         )
+        selected_move_line.shopfloor_user_id = self.env.uid
         response = self.service.dispatch(
             "set_quantity",
             params={
@@ -253,6 +260,7 @@ class TestSetQuantity(CommonCase):
         selected_move_line = picking.move_line_ids.filtered(
             lambda l: l.product_id == self.product_a
         )
+        selected_move_line.shopfloor_user_id = self.env.uid
         response = self.service.dispatch(
             "set_quantity",
             params={
@@ -271,6 +279,7 @@ class TestSetQuantity(CommonCase):
         selected_move_line = picking.move_line_ids.filtered(
             lambda l: l.product_id == self.product_a
         )
+        selected_move_line.shopfloor_user_id = self.env.uid
         response = self.service.dispatch(
             "set_quantity",
             params={
@@ -295,6 +304,7 @@ class TestSetQuantity(CommonCase):
         selected_move_line = picking.move_line_ids.filtered(
             lambda l: l.product_id == self.product_a
         )
+        selected_move_line.shopfloor_user_id = self.env.uid
         response = self.service.dispatch(
             "set_quantity",
             params={

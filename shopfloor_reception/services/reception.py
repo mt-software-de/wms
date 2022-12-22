@@ -80,7 +80,7 @@ class Reception(Component):
         return [
             ("move_id.picking_id.picking_type_id", "in", self.picking_types.ids),
             ("move_id.picking_id.state", "=", "assigned"),
-            ("move_id.picking_id.user_id", "=", False),
+            ("move_id.picking_id.user_id", "in", [False, self.env.uid]),
             ("package_id.product_packaging_id", "=", packaging.id),
         ]
 
@@ -88,7 +88,7 @@ class Reception(Component):
         return [
             ("move_id.picking_id.picking_type_id", "in", self.picking_types.ids),
             ("move_id.picking_id.state", "=", "assigned"),
-            ("move_id.picking_id.user_id", "=", False),
+            ("move_id.picking_id.user_id", "in", [False, self.env.uid]),
             ("product_id", "=", product.id),
         ]
 
@@ -111,12 +111,12 @@ class Reception(Component):
             return self._response_for_select_document(
                 message=self.msg_store.stock_picking_not_available(picking)
             )
-        return self._response_for_select_line(picking)
+        return self._response_for_select_move(picking)
 
-    def _response_for_select_line(self, picking, message=None):
+    def _response_for_select_move(self, picking, message=None):
         self._assign_user_to_picking(picking)
         data = {"picking": self._data_for_stock_picking(picking, with_lines=True)}
-        return self._response(next_state="select_line", data=data, message=message)
+        return self._response(next_state="select_move", data=data, message=message)
 
     def _response_for_confirm_done(self, picking, message=None):
         self._assign_user_to_picking(picking)
@@ -189,35 +189,48 @@ class Reception(Component):
             message=self.msg_store.no_transfer_for_packaging(),
         )
 
-    def _select_line_from_product(self, picking, product):
+    def _select_line_from_product(self, picking, move, product):
         line = fields.first(
             picking.move_line_ids.filtered(
-                lambda l: l.product_id == product and not l.result_package_id
+                lambda l: l.product_id == product
+                and not l.result_package_id
+                and l.shopfloor_user_id.id in [False, self.env.uid]
             )
         )
-        if not line:
-            return self._response_for_select_line(
-                picking,
-                message=self.msg_store.product_not_found_or_already_in_dest_package(),
-            )
+        if line:
+            # The line quantity to do needs to correspond to
+            # the remaining quantity to do of its move.
+            line.product_uom_qty = move.product_uom_qty - move.quantity_done
+        else:
+            qty_to_do = move.product_uom_qty - move.quantity_done
+            values = move._prepare_move_line_vals(quantity=qty_to_do)
+            line = self.env["stock.move.line"].create(values)
         self._assign_user_to_picking(picking)
+        self._assign_user_to_line(line)
+        line.qty_done += 1
         if product.tracking not in ("lot", "serial"):
             return self._response_for_set_quantity(picking, line)
         return self._response_for_set_lot(picking, line)
 
-    def _select_line_from_packaging(self, picking, packaging):
+    def _select_line_from_packaging(self, picking, move, packaging):
         line = fields.first(
             picking.move_line_ids.filtered(
                 lambda l: l.package_id.product_packaging_id == packaging
                 and not l.result_package_id
+                and l.shopfloor_user_id.id in [False, self.env.uid]
             )
         )
-        if not line:
-            return self._response_for_select_line(
-                picking,
-                message=self.msg_store.packaging_not_found_or_already_in_dest_package(),
-            )
+        if line:
+            # The line quantity to do needs to correspond to
+            # the remaining quantity to do of its move.
+            line.product_uom_qty = move.product_uom_qty - move.quantity_done
+        else:
+            qty_to_do = move.product_uom_qty - move.quantity_done
+            values = move._prepare_move_line_vals(quantity=qty_to_do)
+            line = self.env["stock.move.line"].create(values)
         self._assign_user_to_picking(picking)
+        self._assign_user_to_line(line)
+        line.qty_done += packaging.qty
         if packaging.product_id.tracking not in ("lot", "serial"):
             return self._response_for_set_quantity(picking, line)
         return self._response_for_set_lot(picking, line)
@@ -283,13 +296,35 @@ class Reception(Component):
         # from PR #483.
         product = search.product_from_scan(barcode, use_packaging=False)
         if product:
-            return self._select_line_from_product(picking, product)
+            move = picking.move_lines.filtered(lambda m: m.product_id == product)
+            message = self._check_move_available(move)
+            if message:
+                return self._response_for_select_move(
+                    picking,
+                    message=message,
+                )
+            return self._select_line_from_product(picking, move, product)
 
     def _scan_line__by_packaging(self, picking, barcode):
         search = self._actions_for("search")
         packaging = search.packaging_from_scan(barcode)
         if packaging:
-            return self._select_line_from_packaging(picking, packaging)
+            move = picking.move_lines.filtered(
+                lambda m: packaging in m.product_id.packaging_ids
+            )
+            message = self._check_move_available(move)
+            if message:
+                return self._response_for_select_move(
+                    picking,
+                    message=message,
+                )
+            return self._select_line_from_packaging(picking, move, packaging)
+
+    def _check_move_available(self, move):
+        if not move:
+            return self.msg_store.product_not_found_or_already_in_dest_package()
+        if move.product_uom_qty - move.quantity_done < 1:
+            return self.msg_store.move_already_done()
 
     def _set_quantity__by_product(self, picking, selected_line, barcode):
         search = self._actions_for("search")
@@ -342,7 +377,7 @@ class Reception(Component):
                     # and go back to the selection line screen
                     selected_line.result_package_id = package
                     selected_line.location_dest_id = pack_location
-                    return self._response_for_select_line(picking)
+                    return self._response_for_select_move(picking)
             # Scanned package has no location, move to the location selection
             # screen
             selected_line.result_package_id = package
@@ -363,9 +398,9 @@ class Reception(Component):
                     picking, selected_line, message=message
                 )
             # process without pack, set destination location, and go back to
-            # `select_line`
+            # `select_move`
             selected_line.location_dest_id = location
-            return self._response_for_select_line(picking)
+            return self._response_for_select_move(picking)
 
     def _use_handlers(self, handlers, *args, **kwargs):
         for handler in handlers:
@@ -374,16 +409,18 @@ class Reception(Component):
                 return response
 
     def _assign_user_to_picking(self, picking):
-        picking.user_id = self.env.user
+        if not picking.user_id:
+            picking.user_id = self.env.user
+
+    def _assign_user_to_line(self, line):
+        line.shopfloor_user_id = self.env.user
 
     # DATA METHODS
 
     def _data_for_stock_picking(self, picking, with_lines=False):
         data = self.data.picking(picking, with_progress=True)
         if with_lines:
-            data.update(
-                {"move_lines": self._data_for_move_lines(picking.move_line_ids)}
-            )
+            data.update({"moves": self._data_for_moves(picking.move_lines)})
         return data
 
     def _data_for_stock_pickings(self, pickings, with_lines=False):
@@ -394,6 +431,9 @@ class Reception(Component):
 
     def _data_for_move_lines(self, lines, **kw):
         return self.data.move_lines(lines, **kw)
+
+    def _data_for_moves(self, moves, **kw):
+        return self.data.moves(moves, **kw)
 
     # RESPONSES
 
@@ -490,7 +530,7 @@ class Reception(Component):
         transitions:
           - select_document: Error: barcode not found
           - select_document: Multiple picking matching the product / packaging barcode
-          - select_line: Picking scanned, one has been found
+          - select_move: Picking scanned, one has been found
           - manual_selection: Press 'manual select' button, all available pickings are displayed
           - set_lot: Packaging / Product has been scanned,
                         single correspondance. Tracked product
@@ -515,7 +555,7 @@ class Reception(Component):
 
         transitions:
         - select_document: Press 'back' button
-        - select_line: Picking selected
+        - select_move: Picking selected
         - set_lot: Picking selected, single correspondance. Tracked product
         - set_quantity: Picking selected, single correspondance. Not tracked product
 
@@ -538,14 +578,14 @@ class Reception(Component):
             barcode: The barcode of a product or a packaging
 
         transitions:
-          - select_line: Error: barcode not found
+          - select_move: Error: barcode not found
           - set_lot: Packaging / Product has been scanned. Tracked product
           - set_quantity: Packaging / Product has been scanned. Not tracked product
         """
         picking = self.env["stock.picking"].browse(picking_id)
         message = self._check_picking_status(picking)
         if message:
-            return self._response_for_select_line(picking, message=message)
+            return self._response_for_select_move(picking, message=message)
         handlers = (
             self._scan_line__by_product,
             self._scan_line__by_packaging,
@@ -554,7 +594,7 @@ class Reception(Component):
         if response:
             return response
         # Nothing has been found, return an error
-        return self._response_for_select_line(
+        return self._response_for_select_move(
             picking, message=self.msg_store.barcode_not_found()
         )
 
@@ -562,10 +602,10 @@ class Reception(Component):
         picking = self.env["stock.picking"].browse(picking_id)
         message = self._check_picking_status(picking)
         if message:
-            return self._response_for_select_line(pickings=picking, message=message)
+            return self._response_for_select_move(pickings=picking, message=message)
         if all(line.qty_done == 0 for line in picking.move_line_ids):
             # If no line has been processed, refuse to set the picking as done
-            return self._response_for_select_line(
+            return self._response_for_select_move(
                 picking, message=self.msg_store.transfer_no_qty_done()
             )
         if not confirmation:
@@ -603,7 +643,7 @@ class Reception(Component):
             expiration_date: The expiration_date
 
         transitions:
-          - select_line: User clicked on back
+          - select_move: User clicked on back
           - set_lot: Barcode not found. Ask user to create one from barcode
           - set_lot: expiration_date has been set on the selected line
           - set_lot: lot_it has been set on the selected line
@@ -675,7 +715,7 @@ class Reception(Component):
             barcode: Barcode of a package / location to set on the line
 
         transitions:
-          - select_line: User clicked on back
+          - select_move: User clicked on back
           - set_lot: Barcode not found. Ask user to create one from barcode
           - set_lot: expiration_date has been set on the selected line
           - set_lot: lot_it has been set on the selected line
@@ -798,7 +838,7 @@ class Reception(Component):
           - set_destination: Warning: User scanned a child location of the picking type.
             Ask for confirmation
           - set_destination: Error: User tried to scan a non-valid location
-          - select_line: User scanned a child location of the move's dest location
+          - select_move: User scanned a child location of the move's dest location
         """
         picking = self.env["stock.picking"].browse(picking_id)
         selected_line = self.env["stock.move.line"].browse(selected_line_id)
@@ -825,7 +865,7 @@ class Reception(Component):
         if location in move_child_locations:
             # If location is a child of move's dest location, assign it without asking
             selected_line.location_dest_id = location
-            return self._response_for_select_line(picking)
+            return self._response_for_select_move(picking)
         elif location in pick_type_child_locations:
             # If location is a child of picking types's dest location,
             # ask for confirmation before assigning
@@ -838,7 +878,7 @@ class Reception(Component):
                     ),
                 )
             selected_line.location_dest_id = location
-            return self._response_for_select_line(picking)
+            return self._response_for_select_move(picking)
         # Otherwise, return an error
         return self._response_for_set_destination(
             picking, selected_line, message=self.msg_store.dest_location_not_allowed()
@@ -853,7 +893,7 @@ class Reception(Component):
             barcode: The barcode of the package
 
         transitions:
-          - select_line: User scanned a valid package
+          - select_move: User scanned a valid package
           - select_dest_package: Warning: User scanned an unknown barcode.
             Confirm to create one.
           - select_dest_package: Error: User scanned a non-empty package
@@ -883,7 +923,7 @@ class Reception(Component):
                     message=self.msg_store.package_not_empty(package),
                 )
             selected_line.result_package_id = package
-            return self._response_for_select_line(picking)
+            return self._response_for_select_move(picking)
         message = self.msg_store.create_new_pack_ask_confirmation(barcode)
         self._assign_user_to_picking(picking)
         return self._response_for_confirm_new_package(
@@ -1028,7 +1068,7 @@ class ShopfloorReceptionValidatorResponse(Component):
         return {
             "select_document": self._schema_select_document,
             "manual_selection": self._schema_manual_selection,
-            "select_line": self._schema_select_line,
+            "select_move": self._schema_select_move,
             "confirm_done": self._schema_confirm_done,
             "set_lot": self._schema_set_lot,
             "set_quantity": self._schema_set_quantity,
@@ -1043,7 +1083,7 @@ class ShopfloorReceptionValidatorResponse(Component):
     def _scan_document_next_states(self):
         return {
             "select_document",
-            "select_line",
+            "select_move",
             "set_lot",
             "set_quantity",
             "manual_selection",
@@ -1052,29 +1092,29 @@ class ShopfloorReceptionValidatorResponse(Component):
     def _list_stock_pickings_next_states(self):
         return {
             "select_document",
-            "select_line",
+            "select_move",
             "set_lot",
             "set_quantity",
             "manual_selection",
         }
 
     def _scan_line_next_states(self):
-        return {"select_line", "set_lot", "set_quantity"}
+        return {"select_move", "set_lot", "set_quantity"}
 
     def _set_lot_next_states(self):
-        return {"select_line", "set_lot", "set_quantity"}
+        return {"select_move", "set_lot", "set_quantity"}
 
     def _set_quantity_next_states(self):
-        return {"set_quantity", "select_line", "set_destination"}
+        return {"set_quantity", "select_move", "set_destination"}
 
     def _set_destination_next_states(self):
-        return {"set_destination", "select_line"}
+        return {"set_destination", "select_move"}
 
     def _select_dest_package_next_states(self):
-        return {"set_lot", "select_dest_package", "confirm_new_package", "select_line"}
+        return {"set_lot", "select_dest_package", "confirm_new_package", "select_move"}
 
     def _done_next_states(self):
-        return {"select_document", "select_line", "confirm_done"}
+        return {"select_document", "select_move", "confirm_done"}
 
     def _set_lot_confirm_action_next_states(self):
         return {"set_lot", "set_quantity"}
@@ -1107,7 +1147,7 @@ class ShopfloorReceptionValidatorResponse(Component):
         }
 
     @property
-    def _schema_select_line(self):
+    def _schema_select_move(self):
         return {
             "picking": self.schemas._schema_dict_of(
                 self._schema_stock_picking_with_lines(), required=True
@@ -1186,13 +1226,7 @@ class ShopfloorReceptionValidatorResponse(Component):
         # TODO: ideally, we should use self.schemas_detail.picking_detail
         # instead of this method.
         schema = self.schemas.picking()
-        schema.update(
-            {
-                "move_lines": self.schemas._schema_list_of(
-                    self.schemas.move_line(with_packaging=lines_with_packaging)
-                )
-            }
-        )
+        schema.update({"moves": self.schemas._schema_list_of(self.schemas.move())})
         return schema
 
     # ENDPOINTS

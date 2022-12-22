@@ -155,6 +155,61 @@ class TestSelectLine(CommonCase):
             message={"message_type": "warning", "body": error_msg},
         )
 
+    def test_assign_user_to_picking(self):
+        picking = self._create_picking()
+        self.assertEqual(picking.user_id.id, False)
+        self.service.dispatch(
+            "scan_line",
+            params={
+                "picking_id": picking.id,
+                "barcode": self.product_a.barcode,
+            },
+        )
+        self.assertEqual(picking.user_id.id, self.env.uid)
+
+    def test_assign_shopfloor_user_to_line(self):
+        picking = self._create_picking()
+        for line in picking.move_line_ids:
+            self.assertEqual(line.shopfloor_user_id.id, False)
+        self.service.dispatch(
+            "scan_line",
+            params={
+                "picking_id": picking.id,
+                "barcode": self.product_a.barcode,
+            },
+        )
+        selected_move_line = picking.move_line_ids.filtered(
+            lambda l: l.product_id == self.product_a
+        )
+        other_move_line = fields.first(
+            picking.move_line_ids.filtered(lambda l: l.product_id != self.product_a)
+        )
+        self.assertEqual(selected_move_line.shopfloor_user_id.id, self.env.uid)
+        self.assertEqual(other_move_line.shopfloor_user_id.id, False)
+
+    def test_reassign_user(self):
+        picking = self._create_picking()
+        selected_move_line = picking.move_line_ids.filtered(
+            lambda l: l.product_id == self.product_a
+        )
+        # The picking and the selected line have been previously assigned to a different user.
+        another_user = fields.first(
+            self.env["res.users"].search([("id", "!=", self.env.uid)])
+        )
+        picking.user_id = another_user
+        selected_move_line.shopfloor_user_id = another_user
+        self.service.dispatch(
+            "scan_line",
+            params={
+                "picking_id": picking.id,
+                "barcode": self.product_a.barcode,
+            },
+        )
+        # The user of the line has been reassigned,
+        # but the user of the picking remains the same.
+        self.assertEqual(picking.user_id.id, another_user.id)
+        self.assertEqual(selected_move_line.shopfloor_user_id.id, self.env.uid)
+
     def test_done_action(self):
         picking = self._create_picking()
 
