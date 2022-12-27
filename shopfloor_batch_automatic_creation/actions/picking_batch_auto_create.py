@@ -104,11 +104,17 @@ class PickingBatchAutoCreateAction(Component):
         # We can't use a limit in the SQL search because the 'priority' fields
         # is sometimes empty (it seems the inverse StockPicking.priority field
         # mess up with default on stock.move), we have to sort in Python.
-        return self.env["stock.picking"].search(
+        pickings = self.env["stock.picking"].search(
             self._search_pickings_domain(
                 picking_types, user=user, commercial_partner=commercial_partner
             )
         )
+        # The selected pickings need to match the type of the first picking found.
+        first_picking_type = fields.first(pickings).picking_type_id
+        filtered_pickings = pickings.filtered(
+            lambda p: p.picking_type_id == first_picking_type
+        )
+        return filtered_pickings
 
     def _sort(self, pickings):
         return pickings.sorted(
