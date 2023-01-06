@@ -447,6 +447,12 @@ class MessageAction(Component):
             "body": _("No transfer found for the scanned packaging."),
         }
 
+    def no_transfer_for_lot(self):
+        return {
+            "message_type": "error",
+            "body": _("No transfer found for the scanned lot."),
+        }
+
     def create_new_pack_ask_confirmation(self, barcode):
         return {
             "message_type": "warning",
