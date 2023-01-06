@@ -1,5 +1,6 @@
 /**
  * Copyright 2022 Camptocamp SA (http://www.camptocamp.com)
+ * Copyright 2023 Michael Tietz (MT Software) <mtietz@mt-software.de>
  * License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl.html).
  */
 
@@ -469,7 +470,7 @@ const Reception = {
                 select_document: {
                     display_info: {
                         title: "Choose an operation",
-                        scan_placeholder: "Scan document / product / package",
+                        scan_placeholder: "Scan document / product / package / lot",
                     },
                     events: {
                         select: "on_select",
@@ -514,7 +515,7 @@ const Reception = {
                 select_move: {
                     display_info: {
                         title: "Select a move",
-                        scan_placeholder: "Scan product / package",
+                        scan_placeholder: "Scan product / package / lot",
                     },
                     events: {
                         cancel_picking_line: "on_cancel",
@@ -613,7 +614,7 @@ const Reception = {
                     display_info: {
                         title: "Set quantity",
                         scan_placeholder:
-                            "Scan document / product / package / location",
+                            "Scan document / product / package / location / lot",
                     },
                     events: {
                         qty_edit: "on_qty_edit",
