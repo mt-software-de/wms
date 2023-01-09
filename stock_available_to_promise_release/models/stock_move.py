@@ -309,6 +309,36 @@ class StockMove(models.Model):
         res = super()._prepare_procurement_values()
         res["date_priority"] = self.date_priority
         return res
+    
+    def _get_release_decimal_precision(self):
+        return self.env["decimal.precision"].precision_get("Product Unit of Measure")
+
+    def _get_release_remaining_qty(self):
+        self.ensure_one()
+        quantity = min(self.product_qty, self.ordered_available_to_promise_qty)
+        remaining = self.product_qty - quantity
+        precision = self._get_release_decimal_precision()
+        if not float_compare(remaining, 0, precision_digits=precision) > 0:
+            return
+        return remaining
+
+    def _is_releasable(self):
+        self.ensure_one()
+        if not self.need_release:
+            return
+        if self.state not in ("confirmed", "waiting", "done", "cancel"):
+            return
+        precision = self._get_release_decimal_precision()
+        available_quantity = self.ordered_available_to_promise_qty
+        if float_compare(available_quantity, 0, precision_digits=precision) <= 0:
+            return
+
+        if self._get_release_remaining_qty():
+            if self.picking_id._get_shipping_policy() == "one":
+                # we don't want to deliver unless we can deliver all at
+                # once
+                return
+        return True
 
     def _run_stock_rule(self):
         """Launch procurement group run method with remaining quantity
@@ -318,29 +348,15 @@ class StockMove(models.Model):
         latest, we have to periodically retry to assign the remaining
         quantities.
         """
-        precision = self.env["decimal.precision"].precision_get(
-            "Product Unit of Measure"
-        )
         procurement_requests = []
         pulled_moves = self.env["stock.move"]
         backorder_links = {}
         for move in self:
-            if not move.need_release:
+            if not move._is_releasable():
                 continue
-            if move.state not in ("confirmed", "waiting", "done", "cancel"):
-                continue
-            available_quantity = move.ordered_available_to_promise_qty
-            if float_compare(available_quantity, 0, precision_digits=precision) <= 0:
-                continue
+            remaining = move._get_release_remaining_qty()
 
-            quantity = min(move.product_qty, available_quantity)
-            remaining = move.product_qty - quantity
-
-            if float_compare(remaining, 0, precision_digits=precision) > 0:
-                if move.picking_id._get_shipping_policy() == "one":
-                    # we don't want to deliver unless we can deliver all at
-                    # once
-                    continue
+            if remaining:
                 new_move = move._release_split(remaining)
                 backorder_links[new_move.picking_id] = move.picking_id
 
