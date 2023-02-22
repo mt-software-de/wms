@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_stock_picking_multi_packages_reception_user,stock.picking.multi_packages.reception user,model_stock_picking_multi_packages_reception,stock.group_stock_user,1,1,1,1
+access_stock_picking_multi_packages_reception_line_user,stock.picking.multi_packages.reception.line user,model_stock_picking_multi_packages_reception_line,stock.group_stock_user,1,1,1,1
