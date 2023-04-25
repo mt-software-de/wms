@@ -116,12 +116,23 @@ const template_mobile = `
             :card_color="utils.colors.color_for('screen_step_done')"
             />
         <item-detail-card
-            v-if="state_in(['set_line_destination', 'stock_issue', 'change_pack_lot'])"
+            v-if="state_in(['set_line_destination', 'stock_issue', 'change_pack_lot']) && !hide_qty_picker()"
             :key="make_state_component_key(['detail-move-line-product', state.data.move_line.id])"
             :record="state.data.move_line"
             :options="utils.wms.move_line_product_detail_options(state.data.move_line, {fields_blacklist: ['quantity']})"
             :card_color="utils.colors.color_for(state_in(['set_line_destination']) ? 'screen_step_done': 'screen_step_todo')"
             />
+
+
+        <item-detail-card
+            v-if="hide_qty_picker()"
+            :key="make_state_component_key(['detail-move-line-dest-pack', state.data.move_line.id])"
+            :record="state.data.move_line"
+            :options="{main: true, key_title: 'package_dest.name', title_action_field: {action_val_path: 'package_dest.name'}}"
+            :card_color="utils.colors.color_for(state_in(['set_line_destination']) ? 'screen_step_done': 'screen_step_todo')"
+            />
+
+
         <item-detail-card
             v-if="state_in(['set_line_destination'])"
             :key="make_state_component_key(['detail-move-line-loc-dest', state.data.move_line.id])"
@@ -129,7 +140,7 @@ const template_mobile = `
             :options="{main: true, key_title: 'location_dest.name', title_action_field: {action_val_path: 'location_dest.barcode'}}"
             :card_color="utils.colors.color_for('screen_step_todo')"
             />
-        <v-card v-if="state_in(['set_line_destination', 'change_pack_lot'])"
+        <v-card v-if="state_in(['set_line_destination', 'change_pack_lot']) && !hide_qty_picker()"
                 class="pa-2" :color="utils.colors.color_for('screen_step_todo')">
             <packaging-qty-picker
                 :key="make_state_component_key(['packaging-qty-picker', state.data.move_line.id])"
@@ -382,19 +393,36 @@ const ZonePicking = {
         },
         select_line_table_items: function () {
             const self = this;
+            // For line with a complete mix package only show one line per package
+            // with the name of the package
+            var full_package_handeled = [];
             // Convert to v-data-table keys
             const items = _.map(this.state.data.move_lines, function (record) {
                 const item_data = {};
-                _.forEach(self.move_line_list_fields(true), function (field) {
-                    item_data[field.path] = _.result(record, field.path);
-                    if (field.renderer) {
-                        item_data[field.path] = field.renderer(record, field);
+                if (record.handle_complete_mix_pack) {
+                    if (full_package_handeled.includes(record.package_src.name)) {
+                        return {};
                     }
-                });
-                item_data._origin = record;
+                    full_package_handeled.push(record.package_src.name);
+                    _.forEach(self.package_list_fields(true), function (field) {
+                        item_data[field.path] = _.result(record, field.path);
+                        if (field.renderer) {
+                            item_data[field.path] = field.renderer(record, field);
+                        }
+                    });
+                    item_data._origin = record;
+                } else {
+                    _.forEach(self.move_line_list_fields(true), function (field) {
+                        item_data[field.path] = _.result(record, field.path);
+                        if (field.renderer) {
+                            item_data[field.path] = field.renderer(record, field);
+                        }
+                    });
+                    item_data._origin = record;
+                }
                 return item_data;
             });
-            return items;
+            return items.filter((value) => JSON.stringify(value) !== "{}");
         },
         select_line_move_line_detail_options: function () {
             const options = {
@@ -415,6 +443,61 @@ const ZonePicking = {
             };
             return options;
         },
+
+        package_list_fields: function (table_mode = false) {
+            const self = this;
+            const fields = [
+                {
+                    path: "product.display_name",
+                    label: table_mode ? "Product" : null,
+                    renderer: function (rec, field) {
+                        return "";
+                    },
+                },
+                {
+                    path: "package_src.name",
+                    label: "Pack / Lot",
+                    renderer: function (rec, field) {
+                        const pkg = _.result(rec, "package_src.name", "");
+                        const lot = _.result(rec, "lot.name", "");
+                        return lot ? pkg + "\n" + lot : pkg;
+                    },
+                },
+                {
+                    path: "quantity",
+                    label: "Qty",
+                    renderer: function (rec, field) {
+                        return 1;
+                    },
+                },
+                {path: "package_src.weight", label: "Weight"},
+                {
+                    path: "picking.scheduled_date",
+                    label: "Date",
+                    renderer: function (rec, field) {
+                        return self.utils.display.render_field_date(rec, field);
+                    },
+                },
+                {
+                    path: "priority",
+                    label: table_mode ? "Priority" : null,
+                    render_component: "priority-widget",
+                    render_options: function (record) {
+                        return {priority: parseInt(record.priority || "0", 10)};
+                    },
+                },
+                {
+                    path: "location_will_be_empty",
+                    render_component: "empty-location-icon",
+                    display_no_value: true,
+                },
+            ];
+            if (table_mode) {
+                fields.unshift({path: "location_src.name", label: "Location"});
+            }
+            return fields;
+        },
+
         move_line_list_fields: function (table_mode = false) {
             const self = this;
             const fields = [
@@ -520,6 +603,12 @@ const ZonePicking = {
         },
         picking_summary_move_line_detail_fields: function () {
             return [{path: "package_src.name", klass: "loud"}];
+        },
+        hide_qty_picker: function () {
+            if ("handle_complete_mix_pack" in this.state.data) {
+                return this.state.data.handle_complete_mix_pack;
+            }
+            return false;
         },
     },
     computed: {
@@ -672,12 +761,20 @@ const ZonePicking = {
                     },
                     on_scan: (scanned) => {
                         const data = this.state.data;
+                        // When handling a complete pack the quantity picker is hidden
+                        // because all move line of the package will be handled.
+                        // So for that case we pass a positive quantity
+                        const quantity = data.handle_complete_mix_pack
+                            ? data.move_line.quantity
+                            : this.scan_destination_qty;
                         this.wait_call(
                             this.odoo.call("set_destination", {
                                 move_line_id: data.move_line.id,
                                 barcode: scanned.text,
-                                quantity: this.scan_destination_qty,
+                                quantity: quantity,
                                 confirmation: data.confirmation_required,
+                                // package_id: data.is_complete_mix_pack ? data.move_line.package_src.id : null,
+                                handle_complete_mix_pack: data.handle_complete_mix_pack,
                             })
                         );
                     },
