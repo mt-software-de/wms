@@ -51,3 +51,14 @@ class PackagingAction(Component):
 
     def package_has_several_lots(self, package):
         return len(package.quant_ids.lot_id) > 1
+
+    def is_complete_mix_pack(self, package):
+        """Check if a package is mixed and completely reserved.
+
+        Will return true if the package has multiple distinct products and
+        all the package quantities are reserved.
+        """
+        return (
+            self.package_has_several_products(package)
+            and package.move_line_ids == package.reserved_move_line_ids
+        )

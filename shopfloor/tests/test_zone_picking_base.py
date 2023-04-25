@@ -326,6 +326,9 @@ class ZonePickingCommonCase(CommonCase):
             data_move_line[
                 "location_will_be_empty"
             ] = move_line.location_id.planned_qty_in_location_is_empty(move_line)
+            data_move_line[
+                "handle_complete_mix_pack"
+            ] = self.service._handle_complete_mix_pack(move_line.package_id)
         self.assert_response(
             response,
             next_state=state,
@@ -371,6 +374,7 @@ class ZonePickingCommonCase(CommonCase):
         message=None,
         confirmation_required=False,
         qty_done=None,
+        handle_complete_mix_pack=False,
     ):
         expected_move_line = self.data.move_line(move_line, with_picking=True)
         if qty_done is not None:
@@ -383,6 +387,7 @@ class ZonePickingCommonCase(CommonCase):
                 "picking_type": self.data.picking_type(picking_type),
                 "move_line": expected_move_line,
                 "confirmation_required": confirmation_required,
+                "handle_complete_mix_pack": handle_complete_mix_pack,
             },
             message=message,
         )
@@ -396,6 +401,7 @@ class ZonePickingCommonCase(CommonCase):
         message=None,
         confirmation_required=False,
         qty_done=None,
+        handle_complete_mix_pack=False,
     ):
         self._assert_response_set_line_destination(
             "set_line_destination",
@@ -406,6 +412,7 @@ class ZonePickingCommonCase(CommonCase):
             message=message,
             confirmation_required=confirmation_required,
             qty_done=qty_done,
+            handle_complete_mix_pack=handle_complete_mix_pack,
         )
 
     def _assert_response_zero_check(
