@@ -19,9 +19,9 @@ Stock Release Channels
 .. |badge4| image:: https://img.shields.io/badge/weblate-Translate%20me-F47D42.png
     :target: https://translation.odoo-community.org/projects/wms-14-0/wms-14-0-stock_release_channel
     :alt: Translate me on Weblate
-.. |badge5| image:: https://img.shields.io/badge/runbot-Try%20me-875A7B.png
-    :target: https://runbot.odoo-community.org/runbot/285/14.0
-    :alt: Try me on Runbot
+.. |badge5| image:: https://img.shields.io/badge/runboat-Try%20me-875A7B.png
+    :target: https://runboat.odoo-community.org/webui/builds.html?repo=OCA/wms&target_branch=14.0
+    :alt: Try me on Runboat
 
 |badge1| |badge2| |badge3| |badge4| |badge5| 
 
@@ -81,6 +81,7 @@ Authors
 ~~~~~~~
 
 * Camptocamp
+* MT Software
 
 Contributors
 ~~~~~~~~~~~~
@@ -89,6 +90,7 @@ Contributors
 * Matthieu Méquignon <matthieu.mequignon@camptocamp.com>
 * Sébastien Alix <sebastien.alix@camptocamp.com>
 * Jacques-Etienne Baudoux <je@bcim.be>
+* Michael Tietz (MT Software) <mtietz@mt-software.de>
 
 Design
 ~~~~~~
@@ -120,10 +122,13 @@ promote its widespread use.
 .. |maintainer-sebalix| image:: https://github.com/sebalix.png?size=40px
     :target: https://github.com/sebalix
     :alt: sebalix
+.. |maintainer-mt-software-de| image:: https://github.com/mt-software-de.png?size=40px
+    :target: https://github.com/mt-software-de
+    :alt: mt-software-de
 
-Current `maintainer <https://odoo-community.org/page/maintainer-role>`__:
+Current `maintainers <https://odoo-community.org/page/maintainer-role>`__:
 
-|maintainer-sebalix| 
+|maintainer-sebalix| |maintainer-mt-software-de| 
 
 This module is part of the `OCA/wms <https://github.com/OCA/wms/tree/14.0/stock_release_channel>`_ project on GitHub.
 
