@@ -770,12 +770,21 @@ class Reception(Component):
         #     return
         move = line.move_id
         qty_todo = move.product_uom_qty
-        qty_done = sum(move.move_line_ids.mapped("qty_done"))
+        qty_done = 0.0
+        move_uom = move.product_uom
+        for move_line in move.move_line_ids:
+            # Use move's uom
+            qty_done += move_uom._compute_quantity(
+                move_line.qty_done, move_line.product_uom_id, round=False
+            )
         rounding = move.product_id.uom_id.rounding
         compare = float_compare(qty_done, qty_todo, precision_rounding=rounding)
         if compare < 1:  # If qty done < qty todo, align qty todo in the response
             remaining_todo = qty_todo - qty_done
-            line_todo = line.qty_done + remaining_todo
+            # Change back to line uom
+            line_todo = line.product_uom_id._compute_quantity(
+                line.qty_done + remaining_todo, move_uom, round=False
+            )
             response["data"]["set_quantity"]["selected_move_line"][0][
                 "quantity"
             ] = line_todo
