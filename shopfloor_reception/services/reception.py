@@ -1236,6 +1236,11 @@ class Reception(Component):
         )
 
     def _auto_post_line(self, selected_line):
+        # If user only processed 1/5 and is the only one working on the move,
+        # then selected_line is the only one related to this move.
+        # In such case, we must ensure there's another move line with the remaining
+        # quantity to do, so selected_line is extracted in a new move as expected.
+        selected_line._split_partial_quantity()
         new_move = selected_line.move_id.split_other_move_lines(
             selected_line, intersection=True
         )
