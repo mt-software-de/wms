@@ -185,11 +185,11 @@ class StockAction(Component):
             if self._check_backorder(picking, moves_todo):
                 existing_backorder_ids += picking.backorder_ids.ids
                 pickings_to_validate_ids.append(picking.id)
-            elif moves_todo != picking.move_lines:
-                new_picking = moves_todo._extract_in_split_order()
-                if new_picking.state != "assigned":
-                    raise UserError(_("Internal Error. Split order is not available"))
-                pickings_to_validate_ids.append(new_picking.id)
+                continue
+            new_picking = moves_todo._extract_in_split_order()
+            if new_picking.state != "assigned":
+                raise UserError(_("Internal Error. Split order is not available"))
+            pickings_to_validate_ids.append(new_picking.id)
         if pickings_to_validate_ids:
             pickings_to_validate = moves.picking_id.browse(pickings_to_validate_ids)
             pickings_to_validate._action_done()
@@ -197,7 +197,7 @@ class StockAction(Component):
             new_backorders = pickings_to_validate.backorder_ids - existing_backorders
             if new_backorders:
                 new_backorders.write({"user_id": False})
-
+    
     def _check_backorder(self, picking, moves):
         """Check if the `picking` has to be validated as usual to create a backorder.
 
@@ -208,6 +208,10 @@ class StockAction(Component):
             - the moves are not linked to unprocessed ancestor moves
         """
         assigned_moves = picking.move_lines.filtered(lambda m: m.state == "assigned")
+        moves_todo = picking.move_lines - assigned_moves
+        moves_todo = moves_todo.filtered(lambda m: m.state not in ["done", "cancel"])
+        if not moves_todo and assigned_moves == moves:
+            return True
         has_ancestors = bool(
             moves.move_orig_ids.filtered(lambda m: m.state not in ("cancel", "done"))
         )
