@@ -847,7 +847,12 @@ class Reception(Component):
     def _scan_document__get_handlers_by_type(self):
         return {
             "picking": self._scan_document__by_picking,
-            "product": self._scan_document__by_product,
+            # only add the handler if allow_select_document_by_product is enabled
+            "product": (
+                self._scan_document__by_product
+                if self.work.menu.allow_select_document_by_product
+                else None
+            ),
             "packaging": self._scan_document__by_packaging,
             "lot": self._scan_document__by_lot,
             "origin_move": self._scan_document__by_origin_move,

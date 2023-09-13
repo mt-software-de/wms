@@ -49,6 +49,7 @@ class CommonCase(BaseCommonCase):
         cls.profile = cls.env.ref("shopfloor.profile_demo_1")
         cls.picking_type = cls.menu.picking_type_ids
         cls.wh = cls.picking_type.warehouse_id
+        cls._enable_allow_select_document_by_product()
 
     def _data_for_move_lines(self, lines, **kw):
         return self.data.move_lines(lines, **kw)
@@ -138,3 +139,7 @@ class CommonCase(BaseCommonCase):
             ],
             order="scheduled_date ASC",
         )
+
+    @classmethod
+    def _enable_allow_select_document_by_product(cls):
+        cls.menu.sudo().allow_select_document_by_product = True
