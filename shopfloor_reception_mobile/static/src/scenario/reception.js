@@ -153,6 +153,7 @@ const Reception = {
                         <v-row align="center">
                             <v-col class="text-center" cols="12">
                                 <btn-back/>
+                                <cancel-button/>
                             </v-col>
                         </v-row>
                     </div>
