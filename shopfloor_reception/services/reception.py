@@ -1266,13 +1266,16 @@ class Reception(Component):
         # then selected_line is the only one related to this move.
         # In such case, we must ensure there's another move line with the remaining
         # quantity to do, so selected_line is extracted in a new move as expected.
-        selected_line._split_partial_quantity()
+        new_move_line = selected_line._split_partial_quantity()
         new_move = selected_line.move_id.split_other_move_lines(
             selected_line, intersection=True
         )
         if new_move:
             # A new move is created in case of partial quantity
             new_move.extract_and_action_done()
+            stock = self._actions_for("stock")
+            stock.unmark_move_line_as_picked(new_move_line)
+            new_move_line.location_dest_id = new_move_line.move_id.location_dest_id
             return
         # In case of full quantity, post the initial move
         selected_line.move_id.extract_and_action_done()
