@@ -72,6 +72,7 @@ class StockMove(models.Model):
                 product, qty, location, package
             )
         )
+        self.ensure_one()
         if self.picking_type_id.merge_move_for_full_location_reservation:
             # To be able to be merged, the new move should use the same source location as
             # the original one.
