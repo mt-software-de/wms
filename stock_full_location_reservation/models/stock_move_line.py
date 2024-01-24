@@ -52,9 +52,11 @@ class StockMoveLine(models.Model):
             qties = reservable_qties.get(location, {}).get(package, {})
             if not qties:
                 continue
+            # Save the move as line should have been deleted after moves merge
+            move = line.move_id
             for product, qty in qties.items():
                 moves_to_assign_ids.append(
-                    line.move_id._full_location_reservation_create_move(
+                    move._full_location_reservation_create_move(
                         product, qty, location, package
                     ).id
                 )

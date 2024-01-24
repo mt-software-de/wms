@@ -79,11 +79,16 @@ class StockMove(models.Model):
             self._do_unreserve()
             # Don't merge at confirm
             new_move._action_confirm(merge=False)
-            new_move = (
+            merged_move = (
                 (new_move | self)
                 .with_context(skip_undo_full_location_reservation=True)
                 ._merge_moves(merge_into=self)
             )
+            # If the concerned product is not the one of the original move,
+            # it hasn't been merged.
+            if len(merged_move) > 1:
+                return new_move
+            return merged_move
         return new_move
 
     def _full_location_reservation(self, package_only=None):

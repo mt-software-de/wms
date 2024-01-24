@@ -143,3 +143,52 @@ class TestFullLocationReservation(TestStockFullLocationReservationCommon):
         self._check_move_line_len(picking, 1)
         self.assertEqual(10.0, picking.move_ids.product_uom_qty)
         self.assertEqual(10.0, picking.move_ids.reserved_availability)
+
+    def test_full_location_reservation_merge_different_product(self):
+        """
+        Activate the merge for new quantity move.
+        Create a picking and confirm it (quantity: 5).
+        Set product A in rack location (qauntity : 10).
+        Set product B in rack location (quantity: 10)
+        Confirm the picking.
+        Do the full reservation.
+        The whole quantity should be assigned in one move (merged in the original one)
+        for product A and one new move product B.
+
+        """
+        self.picking_type.merge_move_for_full_location_reservation = True
+        picking = self._create_picking(
+            self.location_rack,
+            self.customer_location,
+            self.picking_type,
+            [[self.productA, 5]],
+        )
+        picking.action_confirm()
+        self._check_move_line_len(picking, 1)
+
+        move_A = picking.move_ids
+
+        self._create_quants(
+            [
+                (self.productA, self.location_rack_child, 10.0),
+            ]
+        )
+        self._create_quants(
+            [
+                (self.productB, self.location_rack_child, 10.0),
+            ]
+        )
+
+        picking.action_assign()
+
+        picking.do_full_location_reservation()
+
+        self._check_move_line_len(picking, 2)
+        self.assertEqual([10.0, 10.0], picking.move_ids.mapped("product_uom_qty"))
+        self.assertEqual([10.0, 10.0], picking.move_ids.mapped("reserved_availability"))
+
+        move_A_final = picking.move_ids.filtered(
+            lambda m: m.product_id == self.productA
+        )
+        self.assertEqual(len(move_A_final), 1)
+        self.assertEqual(move_A, move_A_final)
