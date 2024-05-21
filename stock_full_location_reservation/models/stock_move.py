@@ -13,6 +13,22 @@ class StockMove(models.Model):
     def _filter_full_location_reservation_moves(self):
         return self.filtered(lambda m: m.is_full_location_reservation)
 
+    def _action_cancel(self):
+        """
+        Override the method to do the unlink only as the super() do
+        the unreserve also.
+        """
+        # If we are already in a undo_full_location_reservation context,
+        # we return super() method.
+        if self.env.context.get("skip_undo_full_location_reservation"):
+            return super()._action_cancel()
+        new_self = self.with_context(skip_undo_full_location_reservation=True)
+        res = super(StockMove, new_self)._action_cancel()
+        full_location_moves = self._filter_full_location_reservation_moves()
+        if full_location_moves:
+            full_location_moves.unlink()
+        return res
+
     def _do_unreserve(self):
         if self.env.context.get("skip_undo_full_location_reservation"):
             return super()._do_unreserve()

@@ -51,6 +51,54 @@ class TestFullLocationReservation(TestStockFullLocationReservationCommon):
         self._check_move_line_len(picking, 1)
         self._check_move_line_len(picking, 0, self._filter_func)
 
+    def test_full_location_reservation_and_cancel(self):
+        picking = self._create_picking(
+            self.location_rack,
+            self.customer_location,
+            self.picking_type,
+            [[self.productA, 5]],
+        )
+
+        picking.action_confirm()
+        self._check_move_line_len(picking, 1)
+
+        picking.do_full_location_reservation()
+        self._check_move_line_len(picking, 1)
+
+        self._create_quants(
+            [
+                (self.productA, self.location_rack_child, 10.0),
+                (self.productB, self.location_rack_child, 10.0),
+            ]
+        )
+
+        original_moves = picking.move_ids
+
+        picking.do_full_location_reservation()
+        self._check_move_line_len(picking, 1)
+
+        picking.action_assign()
+
+        picking.do_full_location_reservation()
+
+        full_moves = picking.move_ids - original_moves
+
+        self._check_move_line_len(picking, 3)
+        self._check_move_line_len(picking, 2, self._filter_func)
+
+        # repeat test to check undo in do
+        picking.do_full_location_reservation()
+
+        self._check_move_line_len(picking, 3)
+        self._check_move_line_len(picking, 2, self._filter_func)
+
+        moves = picking.move_ids.filtered(self._filter_func)
+        self.assertEqual(moves.location_id, self.location_rack_child)
+
+        picking.move_ids._action_cancel()
+
+        self.assertFalse(full_moves.exists())
+
     def test_multiple_pickings(self):
         picking = self._create_picking(
             self.location_rack,
