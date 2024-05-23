@@ -15,8 +15,9 @@ class StockMove(models.Model):
 
     def _action_cancel(self):
         """
-        Override the method to do the unlink only as the super() do
-        the unreserve also.
+        Override the method to avoid the unlink of replenishment moves
+        via _do_unreserve which is getting called in the super
+        Instead do the unlink after the super if needed.
         """
         # If we are already in a undo_full_location_reservation context,
         # we return super() method.
