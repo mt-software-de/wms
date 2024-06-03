@@ -1,34 +1,17 @@
 # Copyright 2023 Michael Tietz (MT Software) <mtietz@mt-software.de>
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
-from odoo import fields, models
+from odoo import api, fields, models
 
 
 class StockMove(models.Model):
     _inherit = "stock.move"
 
     is_full_location_reservation = fields.Boolean(
-        "Full location reservation move", default=False
+        "Full location reservation move", default=False, index=True
     )
 
     def _filter_full_location_reservation_moves(self):
         return self.filtered(lambda m: m.is_full_location_reservation)
-
-    def _action_cancel(self):
-        """
-        Override the method to avoid the unlink of replenishment moves
-        via _do_unreserve which is getting called in the super
-        Instead do the unlink after the super if needed.
-        """
-        # If we are already in a undo_full_location_reservation context,
-        # we return super() method.
-        if self.env.context.get("skip_undo_full_location_reservation"):
-            return super()._action_cancel()
-        new_self = self.with_context(skip_undo_full_location_reservation=True)
-        res = super(StockMove, new_self)._action_cancel()
-        full_location_moves = self._filter_full_location_reservation_moves()
-        if full_location_moves:
-            full_location_moves.unlink()
-        return res
 
     def _do_unreserve(self):
         if self.env.context.get("skip_undo_full_location_reservation"):
@@ -47,7 +30,9 @@ class StockMove(models.Model):
         self = self.with_context(skip_undo_full_location_reservation=True)
         self._do_unreserve()
         self._action_cancel()
-        self.unlink()
+        # Don't unlink moves here as _action_cancel can be overridden and
+        # could need records after this call.
+        # The unlink will be done asynchronuously trhough cron job.
 
     def _prepare_full_location_reservation_package_level_vals(self, package):
         return {
@@ -105,3 +90,17 @@ class StockMove(models.Model):
 
     def _full_location_reservation(self, package_only=None):
         return self.move_line_ids._full_location_reservation(package_only)
+
+    def _get_to_delete_full_reservation_domain(self):
+        return [("is_full_location_reservation", "=", True), ("state", "=", "cancel")]
+
+    @api.model
+    def cron_delete_canceled_full_reservation(self):
+        """
+        As we don't want to keep old canceled full reservation moves,
+        we clean those ones.
+        """
+        moves = self.env["stock.move"].search(
+            self._get_to_delete_full_reservation_domain()
+        )
+        moves.unlink()

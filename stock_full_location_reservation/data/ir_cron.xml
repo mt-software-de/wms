@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Copyright 2024 ACSONE SA/NV
+     License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl). -->
+<odoo noupdate="1">
+  <record
+        forcecreate="True"
+        id="stock_full_location_resservation_clean"
+        model="ir.cron"
+    >
+    <field name="name">Delete canceled full reservation moves</field>
+      <field name="model_id" ref="stock.model_stock_move" />
+      <field name="state">code</field>
+      <field name="code">model.cron_delete_canceled_full_reservation()</field>
+      <field name="user_id" ref="base.user_root" />
+      <field name="interval_number">1</field>
+      <field name="interval_type">days</field>
+      <field name="numbercall">-1</field>
+      <field eval="False" name="doall" />
+      <field eval="1" name="run_as_queue_job" />
+      <field ref="queue_job_cron.channel_root_ir_cron" name="channel_id" />
+  </record>
+</odoo>
