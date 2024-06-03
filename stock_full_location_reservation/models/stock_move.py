@@ -1,6 +1,8 @@
 # Copyright 2023 Michael Tietz (MT Software) <mtietz@mt-software.de>
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
-from odoo import api, fields, models
+from odoo import _, api, fields, models
+
+from odoo.addons.queue_job.job import identity_exact
 
 
 class StockMove(models.Model):
@@ -33,6 +35,8 @@ class StockMove(models.Model):
         # Don't unlink moves here as _action_cancel can be overridden and
         # could need records after this call.
         # The unlink will be done asynchronuously trhough cron job.
+        description = _("Deleting full reservation moves")
+        self.with_delay(identity_key=identity_exact, description=description).unlink()
 
     def _prepare_full_location_reservation_package_level_vals(self, package):
         return {

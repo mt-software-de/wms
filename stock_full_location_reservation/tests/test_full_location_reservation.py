@@ -1,5 +1,6 @@
 # Copyright 2023 Michael Tietz (MT Software) <mtietz@mt-software.de>
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
+from odoo.addons.queue_job.tests.common import trap_jobs
 from odoo.addons.stock_full_location_reservation.tests.common import (
     TestStockFullLocationReservationCommon,
 )
@@ -106,13 +107,16 @@ class TestFullLocationReservation(TestStockFullLocationReservationCommon):
         moves = picking.move_ids.filtered(self._filter_func)
         self.assertEqual(moves.location_id, self.location_rack_child)
 
-        picking.undo_full_location_reservation()
+        with trap_jobs() as trap:
+            picking.undo_full_location_reservation()
+            trap.assert_enqueued_job(
+                full_moves.unlink,
+                args=(),
+            )
+            trap.perform_enqueued_jobs()
 
-        self._check_move_line_len(picking, 3)
-        self._check_move_line_len(picking, 2, self._filter_func)
-
-        for move in full_moves:
-            self.assertEqual("cancel", move.state)
+        self._check_move_line_len(picking, 1)
+        self._check_move_line_len(picking, 0, self._filter_func)
 
     def test_full_location_reservation_and_cancel(self):
         picking = self._create_picking(
