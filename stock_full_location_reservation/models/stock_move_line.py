@@ -52,6 +52,20 @@ class StockMoveLine(models.Model):
             qties = reservable_qties.get(location, {}).get(package, {})
             if not qties:
                 continue
+
+            # We try first to not unreserve the entire move
+            if line.picking_type_id.merge_move_for_full_location_reservation:
+                # TODO: Manage this case in a better way by taking into account
+                # packages.
+                if not package_only:
+                    total_quantity = 0.0
+                    for product, qty in qties.items():
+                        if product == line.product_id:
+                            total_quantity += qty
+                    # We let the core mechanism occur that will reserve
+                    # the needed quants
+                    line.reserved_uom_qty += total_quantity
+                    break
             for product, qty in qties.items():
                 moves_to_assign_ids.append(
                     line.move_id._full_location_reservation_create_move(
