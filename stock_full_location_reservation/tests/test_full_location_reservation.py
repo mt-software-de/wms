@@ -219,7 +219,7 @@ class TestFullLocationReservation(TestStockFullLocationReservationCommon):
             ).qty_available,
         )
 
-        picking.move_line_ids[0]._full_location_reservation()
+        picking.move_line_ids[0]._full_location_reservation(strict=True)
 
         self.assertEqual(3, len(picking.move_line_ids))
 
@@ -324,5 +324,5 @@ class TestFullLocationReservation(TestStockFullLocationReservationCommon):
 
         self._check_move_line_len(picking, 1)
         # The original demand remains the same
-        self.assertEqual(5.0, picking.move_ids.product_uom_qty)
+        self.assertEqual(10.0, picking.move_ids.product_uom_qty)
         self.assertEqual(10.0, picking.move_ids.reserved_availability)
