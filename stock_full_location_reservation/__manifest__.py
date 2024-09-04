@@ -7,7 +7,7 @@
     "category": "Warehouse Management",
     "version": "16.0.1.0.0",
     "license": "AGPL-3",
-    "depends": ["stock"],
+    "depends": ["stock", "queue_job"],
     "data": [
         "security/groups.xml",
         "views/stock_picking_views.xml",
