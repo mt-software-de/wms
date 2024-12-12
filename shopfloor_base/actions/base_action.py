@@ -31,6 +31,8 @@ def get_actions_for(
         and hasattr(component_instance.work, attr_name)
     }
     kwargs.update(kw)
+    if component_instance.collection._name == "shopfloor.app":
+        kwargs["app"] = component_instance.collection
     actions_collection = collection or get_actions_collection(component_instance.env)
     work = WorkContext(collection=actions_collection, **kwargs)
     return work.component(usage=usage)
